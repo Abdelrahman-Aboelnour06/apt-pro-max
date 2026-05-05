@@ -91,7 +91,6 @@ public class EditorUI {
                     }
                     case "INSERT_CHAR", "DELETE_CHAR", "UNDELETE_CHAR", "FORMAT_CHAR" -> {
                         int caret = textPane.getCaretPosition();
-                        if ("UNDELETE_CHAR".equals(op.type)) caret += 1;
                         renderDocument(caret);
                         drawRemoteCursors();
                     }
@@ -1242,8 +1241,13 @@ public class EditorUI {
                 List<BlockNode> newBlocks = blockDoc.importText(finalContent);
                 int charCount = 0;
                 for (BlockNode block : newBlocks) {
+                    // sendInsertBlock already includes a blockSnapshot of all chars.
+                    // Do NOT send individual INSERT_CHAR messages — that would duplicate
+                    // every character on the remote peer (snapshot + individual ops).
                     client.sendInsertBlock(block);
-                    for (CharNode cn : block.getChars()) { client.sendInsertChar(cn); publish(++charCount); }
+                    // Count chars for progress bar only
+                    charCount += block.getChars().size();
+                    publish(charCount);
                 }
                 if (!newBlocks.isEmpty()) client.setActiveBlockID(newBlocks.get(newBlocks.size()-1).getId());
                 return null;

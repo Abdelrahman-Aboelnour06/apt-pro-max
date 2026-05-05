@@ -275,12 +275,13 @@ public class Client extends WebSocketClient {
                 BlockID newBlockID = new BlockID(op.targetBlockUser, op.targetBlockClock);
                 sharedClock.advanceTo(op.targetBlockClock);
 
-                // Create the new (second) block with the exact ID from the wire.
+                // Create the new (second) block with the exact ID from the wire,
+// inserted IMMEDIATELY AFTER the source block (anchor = source block ID).
                 CharCRDT newCRDT = new CharCRDT(op.targetBlockUser, sharedClock);
-                BlockNode newBlock = localDoc.insertBlockWithID(
-                        newBlockID, sourceBlock.getParentID(), newCRDT);
+                BlockNode newBlock = localDoc.insertBlockAfterAnchor(
+                        sourceBlock.getId(), newCRDT, newBlockID);
 
-                // Move characters from splitAtIndex onward into the new block.
+// Move characters from splitAtIndex onward into the new block.
                 sourceBlock.moveTextFromIndex(newBlock, (int) op.splitAtIndex);
 
                 System.out.println("[Client] Remote SPLIT_BLOCK applied: source=" + sourceID
