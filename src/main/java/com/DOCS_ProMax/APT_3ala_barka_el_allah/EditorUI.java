@@ -678,6 +678,9 @@ public class EditorUI {
             JMenuItem splitBlockItem = new JMenuItem("✂ Split Block Here");
             splitBlockItem.addActionListener(e -> handleManualSplitBlock());
 
+            JMenuItem mergeNextItem = new JMenuItem("⬇ Merge With Next Block");
+            mergeNextItem.addActionListener(e -> handleMergeWithNextBlock());
+
             JMenuItem deleteBlockItem = new JMenuItem("🗑 Delete Block");
             deleteBlockItem.addActionListener(e -> handleDeleteBlock());
 
@@ -688,6 +691,7 @@ public class EditorUI {
             menu.add(pasteBlockItem);
             menu.addSeparator();
             menu.add(splitBlockItem);
+            menu.add(mergeNextItem);
             menu.add(deleteBlockItem);
         }
         return menu;
@@ -914,7 +918,10 @@ public class EditorUI {
     // -------------------------------------------------------------------------
     private void handleManualSplitBlock() {
         BlockID activeBlockID = client.getActiveBlockID();
-        if (activeBlockID == null) { JOptionPane.showMessageDialog(frame, "No active block."); return; }
+        if (activeBlockID == null) {
+            JOptionPane.showMessageDialog(frame, "No active block.");
+            return;
+        }
 
         int globalCursorPos = textPane.getCaretPosition();
         BlockCRDT blockDoc  = client.getLocalDoc();
@@ -926,17 +933,20 @@ public class EditorUI {
 
         for (BlockNode block : ordered) {
             if (block.isDeleted() || block.getContent() == null) continue;
+
             List<CharNode> visibleChars = new java.util.ArrayList<>();
-            for (CharNode cn : block.getContent().getOrderedNodes())
+            for (CharNode cn : block.getContent().getOrderedNodes()) {
                 if (!cn.isDeleted()) visibleChars.add(cn);
+            }
+
             int visibleCount = visibleChars.size();
 
             if (block.getId().equals(activeBlockID)) {
                 activeBlock = block;
-                // localIndex = cursor position relative to start of this block
-                localIndex  = Math.max(0, Math.min(globalCursorPos - globalOffset, visibleCount));
+                localIndex = Math.max(0, Math.min(globalCursorPos - globalOffset, visibleCount));
                 break;
             }
+
             globalOffset += visibleCount;
         }
 
@@ -945,37 +955,109 @@ public class EditorUI {
             return;
         }
 
-        // Count visible chars in active block
         int totalVisible = (int) activeBlock.getContent().getOrderedNodes()
-                .stream().filter(cn -> !cn.isDeleted()).count();
+                .stream()
+                .filter(cn -> !cn.isDeleted())
+                .count();
 
         if (localIndex < 0 || localIndex >= totalVisible) {
-            JOptionPane.showMessageDialog(frame,
-                    "Cannot split at cursor – place cursor between characters inside the block.");
+            JOptionPane.showMessageDialog(
+                    frame,
+                    "Cannot split at cursor – place cursor between characters inside the block."
+            );
             return;
         }
 
-        // Insert '\n' at split point so the split behaves like pressing Enter
+        client.sendBeginGroup();
+
         CharID parentID = (localIndex == 0)
                 ? activeBlock.getContent().rootID
                 : activeBlock.getChars().get(localIndex - 1).getID();
-        CharNode newline = activeBlock.getContent().insertNode(parentID, '\n');
-        if (newline != null) client.sendInsertChar(newline);
 
-        // Now split AFTER the newline (localIndex + 1)
+        CharNode newline = activeBlock.getContent().insertNode(parentID, '\n');
+        if (newline != null) {
+            client.sendInsertChar(newline);
+        }
+
         BlockNode newBlock = blockDoc.splitBlockAtCursor(activeBlockID, localIndex + 1);
+
         if (newBlock != null) {
             client.sendSplitBlock(activeBlockID, newBlock, localIndex + 1);
+            client.sendEndGroup();
+
             client.setActiveBlockID(newBlock.getId());
+
             renderDocument(globalCursorPos + 1);
             drawRemoteCursors();
             updateRemoteCursorDisplay();
+
             JOptionPane.showMessageDialog(frame, "Block split successfully!");
         } else {
+            client.sendEndGroup();
             JOptionPane.showMessageDialog(frame, "Split failed.");
         }
     }
+    private void handleMergeWithNextBlock() {
+        BlockID activeBlockID = client.getActiveBlockID();
 
+        if (activeBlockID == null) {
+            JOptionPane.showMessageDialog(frame, "No active block selected.");
+            return;
+        }
+
+        BlockCRDT blockDoc = client.getLocalDoc();
+        List<BlockNode> ordered = blockDoc.getOrderedNodes();
+
+        int activeIndex = -1;
+
+        for (int i = 0; i < ordered.size(); i++) {
+            if (ordered.get(i).getId().equals(activeBlockID)) {
+                activeIndex = i;
+                break;
+            }
+        }
+
+        if (activeIndex == -1) {
+            JOptionPane.showMessageDialog(frame, "Active block not found.");
+            return;
+        }
+
+        int nextIndex = activeIndex + 1;
+
+        if (nextIndex >= ordered.size()) {
+            JOptionPane.showMessageDialog(frame, "Merge failed: no next block to merge with.");
+            return;
+        }
+
+        BlockNode activeBlock = ordered.get(activeIndex);
+        BlockNode nextBlock = ordered.get(nextIndex);
+
+        int totalLines = activeBlock.getLineCount() + nextBlock.getLineCount();
+
+        if (totalLines > MAX_LINES_PER_BLOCK) {
+            JOptionPane.showMessageDialog(
+                    frame,
+                    "Merge failed: merged block would have " + totalLines +
+                            " lines.\nMaximum allowed is " + MAX_LINES_PER_BLOCK + "."
+            );
+            return;
+        }
+
+        boolean merged = blockDoc.mergeWithNext(activeBlockID);
+
+        if (!merged) {
+            JOptionPane.showMessageDialog(frame, "Merge failed.");
+            return;
+        }
+
+        client.sendMergeBlock(activeBlockID);
+
+        renderDocument(textPane.getCaretPosition());
+        drawRemoteCursors();
+        updateRemoteCursorDisplay();
+
+        JOptionPane.showMessageDialog(frame, "Blocks merged successfully.");
+    }
 
     private void handleDeleteBlock() {
         BlockID activeBlockID = client.getActiveBlockID();

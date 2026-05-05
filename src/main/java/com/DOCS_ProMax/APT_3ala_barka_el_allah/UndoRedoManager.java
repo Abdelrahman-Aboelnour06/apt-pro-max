@@ -206,6 +206,21 @@ public class UndoRedoManager {
                 inv.parentBlockClock = original.parentBlockClock;
                 inv.blockSnapshot    = original.blockSnapshot;
             }
+
+            case "SPLIT_BLOCK" -> {
+                inv.type = "MERGE_SPLIT";
+
+                // Original block that was split
+                inv.blockUser = original.blockUser;
+                inv.blockClock = original.blockClock;
+
+                // New block that was created by the split
+                inv.targetBlockUser = original.targetBlockUser;
+                inv.targetBlockClock = original.targetBlockClock;
+
+                inv.splitAtIndex = original.splitAtIndex;
+            }
+
             default -> { return copyWithUsername(original, username); }
         }
         return inv;
@@ -241,6 +256,15 @@ public class UndoRedoManager {
         copy.parentBlockUser  = src.parentBlockUser;
         copy.parentBlockClock = src.parentBlockClock;
         copy.blockSnapshot    = src.blockSnapshot;
+        copy.targetBlockUser  = src.targetBlockUser;
+        copy.targetBlockClock = src.targetBlockClock;
+        copy.splitAtIndex     = src.splitAtIndex;
+
+        copy.anchorBlockUser  = src.anchorBlockUser;
+        copy.anchorBlockClock = src.anchorBlockClock;
+        copy.insertPosition   = src.insertPosition;
+        copy.isMoveOp         = src.isMoveOp;
+
         return copy;
     }
 

@@ -173,7 +173,8 @@ public class Server extends TextWebSocketHandler {
 
 
                 case "INSERT_BLOCK", "DELETE_BLOCK", "SPLIT_BLOCK", "MERGE_BLOCK",
-                     "MOVE_BLOCK", "COPY_BLOCK" , "MOVE_BLOCK_EXEC"-> {
+                     "MERGE_SPLIT",
+                     "MOVE_BLOCK", "COPY_BLOCK" , "MOVE_BLOCK_EXEC" ->{
                     if (!sessionManager.isEditor(session)) {
                         sendError(session, "Viewers cannot modify blocks"); return;
                     }

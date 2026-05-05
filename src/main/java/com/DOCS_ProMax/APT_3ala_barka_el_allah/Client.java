@@ -322,7 +322,41 @@ public class Client extends WebSocketClient {
                     System.err.println("[Client] Remote COPY_BLOCK failed for source " + sourceID);
                 }
             }
-// REPLACE the MOVE_BLOCK_EXEC case in Client.java onMessage()
+
+            case "MERGE_SPLIT" -> {
+                BlockID originalID = new BlockID(op.blockUser, op.blockClock);
+                BlockID splitBlockID = new BlockID(op.targetBlockUser, op.targetBlockClock);
+
+                BlockNode originalBlock = localDoc.getBlock(originalID);
+                BlockNode splitBlock = localDoc.getBlock(splitBlockID);
+
+                if (originalBlock == null || splitBlock == null) {
+                    System.err.println("[Client] MERGE_SPLIT failed: block not found");
+                    break;
+                }
+
+                if (originalBlock.isDeleted() || splitBlock.isDeleted()) {
+                    System.err.println("[Client] MERGE_SPLIT ignored: block already deleted");
+                    break;
+                }
+
+                int totalLines = originalBlock.getLineCount() + splitBlock.getLineCount();
+
+                if (totalLines > 10) {
+                    System.err.println("[Client] MERGE_SPLIT rejected: too many lines = " + totalLines);
+                    break;
+                }
+
+                boolean merged = localDoc.mergeWithNext(originalID);
+
+                if (!merged) {
+                    System.err.println("[Client] MERGE_SPLIT failed");
+                } else {
+                    System.out.println("[Client] MERGE_SPLIT applied");
+                }
+            }
+
+
             case "MOVE_BLOCK_EXEC" -> {
                 sharedClock.advanceTo(op.blockClock);
 
@@ -339,6 +373,8 @@ public class Client extends WebSocketClient {
                         oldBlock.setDeleted(true);
                     }
                 }
+
+
 
                 // 2. Rebuild content from snapshot
                 BlockID newBlockID = new BlockID(op.blockUser, op.blockClock);
