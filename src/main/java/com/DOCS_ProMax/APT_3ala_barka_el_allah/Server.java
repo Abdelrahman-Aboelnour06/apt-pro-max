@@ -226,12 +226,15 @@ public class Server extends TextWebSocketHandler {
 
                 case "CURSOR" -> {
                     String code = sessionManager.getSessionCode(session);
+                    if (code == null) return;
+
                     List<WebSocketSession> others = sessionManager.getOtherClients(session);
                     String payload = message.getPayload();
-                    sessionManager.bufferMissedOp(code, payload);
-                    for (WebSocketSession other : others) sendTo(other, payload);
-                }
 
+                    for (WebSocketSession other : others) {
+                        sendTo(other, payload);
+                    }
+                }
                //kolo yb2a bayen
                 case "GET_ACTIVE_USERS" -> {
                     String code = sessionManager.getSessionCode(session);

@@ -510,14 +510,18 @@ public class Client extends WebSocketClient {
     }
 
     public void sendCursor(int index) {
+        if (!isOpen()) return;
+        if (username == null || username.isBlank()) return;
+        if (sessionCode == null || sessionCode.isBlank()) return;
+
         Operations op  = new Operations();
         op.type        = "CURSOR";
         op.sessionCode = sessionCode;
         op.username    = username;
         op.cursorIndex = index;
+
         send(op.toJson());
     }
-
     // -----------------------------------------------------------------------
     // Block operation senders
     // -----------------------------------------------------------------------

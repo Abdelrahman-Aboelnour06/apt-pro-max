@@ -49,6 +49,9 @@ public class EditorUI {
             new Color(50, 205, 50),
             new Color(255, 165, 0)
     };
+    private boolean suppressCursorSend = false;
+    private int lastSentCursorPosition = -1;
+    private javax.swing.Timer cursorPublishTimer;
 
     // Comments
     private final java.util.Map<String, Comment> activeComments = new java.util.LinkedHashMap<>();
@@ -317,12 +320,26 @@ public class EditorUI {
         textPane = new JTextPane();
         textPane.setEditable(client.isEditor());
         textPane.addCaretListener(e -> {
-            if (client != null) {
-                client.sendCursor(textPane.getCaretPosition());
+            if (!suppressCursorSend) {
                 updateActiveBlockFromCursor(textPane.getCaretPosition());
             }
         });
         highlighter = textPane.getHighlighter();
+        cursorPublishTimer = new javax.swing.Timer(120, e -> {
+            if (client == null) return;
+            if (!client.isOpen()) return;
+            if (suppressCursorSend) return;
+            if (!textPane.hasFocus()) return;
+
+            int pos = textPane.getCaretPosition();
+
+            if (pos != lastSentCursorPosition) {
+                client.sendCursor(pos);
+                lastSentCursorPosition = pos;
+            }
+        });
+
+        cursorPublishTimer.start();
 
         JPopupMenu contextMenu = buildContextMenu();
         textPane.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -441,6 +458,7 @@ public class EditorUI {
         frame.addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
+                if (cursorPublishTimer != null) cursorPublishTimer.stop();
                 if (client != null) client.close();
             }
         });
@@ -1037,19 +1055,37 @@ public class EditorUI {
     }
 
     private void renderDocument(int newCursorPosition) {
-        List<CharNode> nodes = getAllVisibleNodes();
-        textPane.setText("");
-        StyledDocument styledDoc = textPane.getStyledDocument();
+        suppressCursorSend = true;
+
         try {
+            List<CharNode> nodes = getAllVisibleNodes();
+            textPane.setText("");
+
+            StyledDocument styledDoc = textPane.getStyledDocument();
+
             for (CharNode node : nodes) {
                 SimpleAttributeSet style = new SimpleAttributeSet();
                 StyleConstants.setBold(style, node.isBold());
                 StyleConstants.setItalic(style, node.isItalic());
-                styledDoc.insertString(styledDoc.getLength(), String.valueOf(node.getValue()), style);
+
+                styledDoc.insertString(
+                        styledDoc.getLength(),
+                        String.valueOf(node.getValue()),
+                        style
+                );
             }
-        } catch (Exception e) { e.printStackTrace(); }
-        textPane.setCaretPosition(Math.min(newCursorPosition, styledDoc.getLength()));
-        drawCommentHighlights();
+
+            textPane.setCaretPosition(
+                    Math.min(newCursorPosition, styledDoc.getLength())
+            );
+
+            drawCommentHighlights();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            suppressCursorSend = false;
+        }
     }
 
     // =========================================================================
@@ -1127,9 +1163,15 @@ public class EditorUI {
     }
 
     private Color getUserColor(String user) {
-        return CURSOR_COLORS[Math.abs(user.toLowerCase().hashCode()) % CURSOR_COLORS.length];
-    }
+        if (user == null) return Color.BLACK;
 
+        if (!assignedColors.containsKey(user)) {
+            int index = assignedColors.size() % CURSOR_COLORS.length;
+            assignedColors.put(user, CURSOR_COLORS[index]);
+        }
+
+        return assignedColors.get(user);
+    }
     private void drawRemoteCursors() {
         cursorHighlights.values().forEach(highlighter::removeHighlight);
         cursorHighlights.clear();
