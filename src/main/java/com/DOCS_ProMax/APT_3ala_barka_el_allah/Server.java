@@ -197,13 +197,11 @@ public class Server extends TextWebSocketHandler {
                         sendError(session, "Nothing to undo"); return;
                     }
 
-                    // FIX: Get the session so we can log the inverse ops
                     SessionManager.Session s = sessionManager.getSession(editorCode);
 
                     for (Operations inv : inverses) {
                         inv.sessionCode = editorCode;
                         String invJson = inv.toJson();
-                        // LOG the inverse so late-joining users replay it too
                         if (s != null) s.logOperation(invJson);
                         broadcastToAll(editorCode, invJson);
                     }
@@ -221,13 +219,11 @@ public class Server extends TextWebSocketHandler {
                         sendError(session, "Nothing to redo"); return;
                     }
 
-                    // FIX: Get the session so we can log the reapplied ops
                     SessionManager.Session s = sessionManager.getSession(editorCode);
 
                     for (Operations r : reapplied) {
                         r.sessionCode = editorCode;
                         String rJson = r.toJson();
-                        // LOG the redo so late-joining users replay it too
                         if (s != null) s.logOperation(rJson);
                         broadcastToAll(editorCode, rJson);
                     }

@@ -573,6 +573,7 @@ public class BlockCRDT {
         BlockNode parentNode = getNode(normalizedParent);
         if (parentNode == null) parentNode = root;
 
+        parentNode.getChildren().removeIf(child -> child.getId().equals(blockID));
         BlockNode newNode = new BlockNode(blockID, normalizedParent, content);
         nodeMap.put(blockID, newNode);
         parentNode.getChildren().add(newNode);
