@@ -1309,13 +1309,22 @@ public class EditorUI {
                 List<BlockNode> newBlocks = blockDoc.importText(finalContent);
                 int charCount = 0;
                 for (BlockNode block : newBlocks) {
-                    // sendInsertBlock already includes a blockSnapshot of all chars.
-                    // Do NOT send individual INSERT_CHAR messages — that would duplicate
-                    // every character on the remote peer (snapshot + individual ops).
-                    client.sendInsertBlock(block);
-                    // Count chars for progress bar only
-                    charCount += block.getChars().size();
-                    publish(charCount);
+                    // Send block with empty snapshot first
+                    Operations insertBlock = new Operations();
+                    insertBlock.type             = "INSERT_BLOCK";
+                    insertBlock.sessionCode      = client.getSessionCode();  // need getter or use sendInsertBlock
+                    insertBlock.blockUser        = block.getId().getUserID();
+                    insertBlock.blockClock       = block.getId().getClock();
+                    insertBlock.parentBlockUser  = -1;
+                    insertBlock.parentBlockClock = -1;
+                    insertBlock.blockSnapshot    = null; // empty — chars come individually
+                    client.send(insertBlock.toJson());
+
+                    // Then send chars one by one
+                    for (CharNode cn : block.getChars()) {
+                        client.sendInsertChar(cn);
+                    }
+                    publish(charCount += block.getChars().size());
                 }
                 if (!newBlocks.isEmpty()) client.setActiveBlockID(newBlocks.get(newBlocks.size()-1).getId());
                 return null;
@@ -1335,6 +1344,7 @@ public class EditorUI {
             }
         };
         worker.execute();
+
     }
 
     private void onExport() {
