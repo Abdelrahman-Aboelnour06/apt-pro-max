@@ -193,20 +193,21 @@ public class Server extends TextWebSocketHandler {
                     List<Operations> inverses =
                             undoRedoManager.undoFromSessionGroup(editorCode, op.username);
 
-
-                    //List<Operations> inverses = undoRedoManager.undoGroup(op.username);
-                    //if (inverses == null || inverses.isEmpty()) {
-                      //  inverses = undoRedoManager.undoFromSessionGroup(editorCode, op.username);
-                    //}
                     if (inverses == null || inverses.isEmpty()) {
                         sendError(session, "Nothing to undo"); return;
                     }
+
+                    // FIX: Get the session so we can log the inverse ops
+                    SessionManager.Session s = sessionManager.getSession(editorCode);
+
                     for (Operations inv : inverses) {
                         inv.sessionCode = editorCode;
-                        broadcastToAll(editorCode, inv.toJson());
+                        String invJson = inv.toJson();
+                        // LOG the inverse so late-joining users replay it too
+                        if (s != null) s.logOperation(invJson);
+                        broadcastToAll(editorCode, invJson);
                     }
                 }
-
                 case "REDO" -> {
                     if (!sessionManager.isEditor(session)) {
                         sendError(session, "Viewers cannot redo"); return;
@@ -215,19 +216,22 @@ public class Server extends TextWebSocketHandler {
 
                     List<Operations> reapplied =
                             undoRedoManager.redoFromSessionGroup(editorCode, op.username);
-                    /*List<Operations> reapplied = undoRedoManager.redoGroup(op.username);
+
                     if (reapplied == null || reapplied.isEmpty()) {
-                        reapplied = undoRedoManager.redoFromSessionGroup(editorCode, op.username);
-                    }*/
-                    if (reapplied == null ||reapplied.isEmpty()) {
                         sendError(session, "Nothing to redo"); return;
                     }
+
+                    // FIX: Get the session so we can log the reapplied ops
+                    SessionManager.Session s = sessionManager.getSession(editorCode);
+
                     for (Operations r : reapplied) {
                         r.sessionCode = editorCode;
-                        broadcastToAll(editorCode, r.toJson());
+                        String rJson = r.toJson();
+                        // LOG the redo so late-joining users replay it too
+                        if (s != null) s.logOperation(rJson);
+                        broadcastToAll(editorCode, rJson);
                     }
                 }
-
 
 
 
