@@ -221,6 +221,21 @@ public class UndoRedoManager {
                 inv.splitAtIndex = original.splitAtIndex;
             }
 
+            case "MOVE_BLOCK_EXEC" -> {
+                if (original.targetBlockUser == -1 && original.targetBlockClock == -1) {
+                    inv.type = "DELETE_BLOCK";
+
+                    inv.blockUser = original.blockUser;
+                    inv.blockClock = original.blockClock;
+
+
+                    inv.blockSnapshot = original.blockSnapshot;
+                } else {
+
+                    return null;
+                }
+            }
+
             default -> { return copyWithUsername(original, username); }
         }
         return inv;

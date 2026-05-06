@@ -190,10 +190,14 @@ public class Server extends TextWebSocketHandler {
                     }
                     String editorCode = sessionManager.getSessionCode(session);
 
-                    List<Operations> inverses = undoRedoManager.undoGroup(op.username);
-                    if (inverses == null || inverses.isEmpty()) {
-                        inverses = undoRedoManager.undoFromSessionGroup(editorCode, op.username);
-                    }
+                    List<Operations> inverses =
+                            undoRedoManager.undoFromSessionGroup(editorCode, op.username);
+
+
+                    //List<Operations> inverses = undoRedoManager.undoGroup(op.username);
+                    //if (inverses == null || inverses.isEmpty()) {
+                      //  inverses = undoRedoManager.undoFromSessionGroup(editorCode, op.username);
+                    //}
                     if (inverses == null || inverses.isEmpty()) {
                         sendError(session, "Nothing to undo"); return;
                     }
@@ -209,10 +213,12 @@ public class Server extends TextWebSocketHandler {
                     }
                     String editorCode = sessionManager.getSessionCode(session);
 
-                    List<Operations> reapplied = undoRedoManager.redoGroup(op.username);
+                    List<Operations> reapplied =
+                            undoRedoManager.redoFromSessionGroup(editorCode, op.username);
+                    /*List<Operations> reapplied = undoRedoManager.redoGroup(op.username);
                     if (reapplied == null || reapplied.isEmpty()) {
                         reapplied = undoRedoManager.redoFromSessionGroup(editorCode, op.username);
-                    }
+                    }*/
                     if (reapplied == null ||reapplied.isEmpty()) {
                         sendError(session, "Nothing to redo"); return;
                     }
