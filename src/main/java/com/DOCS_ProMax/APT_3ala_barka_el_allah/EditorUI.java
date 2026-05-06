@@ -1086,33 +1086,44 @@ public class EditorUI {
         return last.getContent().insertNode(last.getContent().rootID, value);
     }
 
+    // REPLACE THIS ENTIRE METHOD IN EditorUI.java
     private void renderDocument(int newCursorPosition) {
         suppressCursorSend = true;
-
         try {
             List<CharNode> nodes = getAllVisibleNodes();
             textPane.setText("");
-
             StyledDocument styledDoc = textPane.getStyledDocument();
 
-            for (CharNode node : nodes) {
-                SimpleAttributeSet style = new SimpleAttributeSet();
-                StyleConstants.setBold(style, node.isBold());
-                StyleConstants.setItalic(style, node.isItalic());
+            // THE FIX: Batch characters together to prevent the UI thread from freezing
+            StringBuilder sb = new StringBuilder();
+            boolean currentBold = false;
+            boolean currentItalic = false;
 
-                styledDoc.insertString(
-                        styledDoc.getLength(),
-                        String.valueOf(node.getValue()),
-                        style
-                );
+            for (CharNode node : nodes) {
+                // If the formatting changes, dump the buffer to the screen and start fresh
+                if (sb.length() > 0 && (node.isBold() != currentBold || node.isItalic() != currentItalic)) {
+                    SimpleAttributeSet style = new SimpleAttributeSet();
+                    StyleConstants.setBold(style, currentBold);
+                    StyleConstants.setItalic(style, currentItalic);
+                    styledDoc.insertString(styledDoc.getLength(), sb.toString(), style);
+                    sb.setLength(0);
+                }
+
+                sb.append(node.getValue());
+                currentBold = node.isBold();
+                currentItalic = node.isItalic();
             }
 
-            textPane.setCaretPosition(
-                    Math.min(newCursorPosition, styledDoc.getLength())
-            );
+            // Dump the final remaining text block
+            if (sb.length() > 0) {
+                SimpleAttributeSet style = new SimpleAttributeSet();
+                StyleConstants.setBold(style, currentBold);
+                StyleConstants.setItalic(style, currentItalic);
+                styledDoc.insertString(styledDoc.getLength(), sb.toString(), style);
+            }
 
+            textPane.setCaretPosition(Math.min(newCursorPosition, styledDoc.getLength()));
             drawCommentHighlights();
-
         } catch (Exception e) {
             e.printStackTrace();
         } finally {

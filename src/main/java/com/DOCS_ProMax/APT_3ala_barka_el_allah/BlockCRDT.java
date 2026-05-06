@@ -266,7 +266,7 @@ public class BlockCRDT {
         return newBlock;
     }
 
-    public List<BlockNode> importText(String text) {
+    /*public List<BlockNode> importText(String text) {
         List<BlockNode> created = new ArrayList<>();
         if (text == null || text.isEmpty()) return created;
 
@@ -299,6 +299,40 @@ public class BlockCRDT {
             if (inserted != null) lastID = inserted.getID();
         }
 
+        return created;
+    }*/
+
+    // REPLACE THIS METHOD IN BlockCRDT.java
+    public List<BlockNode> importText(String text) {
+        List<BlockNode> created = new ArrayList<>();
+        if (text == null || text.isEmpty()) return created;
+        CharCRDT  currentContent = new CharCRDT(this.userid, this.clock);
+        BlockNode currentBlock   = createNode(null, currentContent);
+        root.addChild(currentBlock);
+        created.add(currentBlock);
+        CharID lastID       = currentContent.rootID;
+        int    linesInBlock = 1;
+
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+
+            // THE FIX: Insert the character into the CRDT FIRST so newlines aren't lost
+            CharNode inserted = currentContent.insertNode(lastID, ch);
+            if (inserted != null) lastID = inserted.getID();
+
+            // THEN check if we need to wrap the next text into a new block
+            if (ch == '\n') {
+                linesInBlock++;
+                if (linesInBlock > MAX_LINES) {
+                    currentContent = new CharCRDT(this.userid, this.clock);
+                    currentBlock   = createNode(null, currentContent);
+                    root.addChild(currentBlock);
+                    created.add(currentBlock);
+                    lastID       = currentContent.rootID;
+                    linesInBlock = 1;
+                }
+            }
+        }
         return created;
     }
 
@@ -362,7 +396,7 @@ public class BlockCRDT {
     // DFS, skips root sentinel and deleted nodes.
     // In BlockCRDT.java
 
-    private void depthFirstTraversal(BlockNode startNode, List<BlockNode> result) {
+    /*private void depthFirstTraversal(BlockNode startNode, List<BlockNode> result) {
         Deque<BlockNode> stack = new ArrayDeque<>();
         for (BlockNode child : startNode.getChildren()) stack.push(child);
 
@@ -384,6 +418,47 @@ public class BlockCRDT {
         while (!stack.isEmpty()) {
             BlockNode node = stack.pop();
             result.add(node);
+            List<BlockNode> children = node.getChildren();
+            for (int i = children.size() - 1; i >= 0; i--) {
+                stack.push(children.get(i));
+            }
+        }
+    }*/
+
+    // REPLACE THESE TWO METHODS ENTIRELY IN BlockCRDT.java
+    private void depthFirstTraversal(BlockNode startNode, List<BlockNode> result) {
+        Deque<BlockNode> stack = new ArrayDeque<>();
+
+        // THE FIX: Push children in reverse order so the first block is processed first!
+        List<BlockNode> rootChildren = startNode.getChildren();
+        for (int i = rootChildren.size() - 1; i >= 0; i--) {
+            stack.push(rootChildren.get(i));
+        }
+
+        while (!stack.isEmpty()) {
+            BlockNode node = stack.pop();
+            if (!node.isDeleted()) result.add(node);
+
+            List<BlockNode> children = node.getChildren();
+            for (int i = children.size() - 1; i >= 0; i--) {
+                stack.push(children.get(i));
+            }
+        }
+    }
+
+    private void traverseAllBlocks(BlockNode startNode, List<BlockNode> result) {
+        Deque<BlockNode> stack = new ArrayDeque<>();
+
+        // THE FIX: Push children in reverse order so the first block is processed first!
+        List<BlockNode> rootChildren = startNode.getChildren();
+        for (int i = rootChildren.size() - 1; i >= 0; i--) {
+            stack.push(rootChildren.get(i));
+        }
+
+        while (!stack.isEmpty()) {
+            BlockNode node = stack.pop();
+            result.add(node);
+
             List<BlockNode> children = node.getChildren();
             for (int i = children.size() - 1; i >= 0; i--) {
                 stack.push(children.get(i));
