@@ -64,6 +64,9 @@ public class Client extends WebSocketClient {
     public Client(String serverUri, BlockCRDT localDoc, Clock sharedClock, BlockID activeBlockID)
             throws URISyntaxException {
         super(new URI(serverUri));
+        this.setConnectionLostTimeout(0);
+        this.setTcpNoDelay(true);
+
         this.serverUri     = serverUri;
         this.localDoc      = localDoc;
         this.sharedClock   = sharedClock;
