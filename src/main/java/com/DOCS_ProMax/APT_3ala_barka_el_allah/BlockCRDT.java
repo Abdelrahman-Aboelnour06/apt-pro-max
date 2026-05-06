@@ -5,7 +5,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 public class BlockCRDT {
 
@@ -359,11 +360,36 @@ public class BlockCRDT {
     }
 
     // DFS, skips root sentinel and deleted nodes.
-    private void depthFirstTraversal(BlockNode node, List<BlockNode> result) {
-        if (node != root && !node.isDeleted()) result.add(node);
-        for (BlockNode child : node.getChildren()) depthFirstTraversal(child, result);
+    // In BlockCRDT.java
+
+    private void depthFirstTraversal(BlockNode startNode, List<BlockNode> result) {
+        Deque<BlockNode> stack = new ArrayDeque<>();
+        for (BlockNode child : startNode.getChildren()) stack.push(child);
+
+        while (!stack.isEmpty()) {
+            BlockNode node = stack.pop();
+            if (!node.isDeleted()) result.add(node);
+            // Push children in reverse to preserve order
+            List<BlockNode> children = node.getChildren();
+            for (int i = children.size() - 1; i >= 0; i--) {
+                stack.push(children.get(i));
+            }
+        }
     }
 
+    private void traverseAllBlocks(BlockNode startNode, List<BlockNode> result) {
+        Deque<BlockNode> stack = new ArrayDeque<>();
+        for (BlockNode child : startNode.getChildren()) stack.push(child);
+
+        while (!stack.isEmpty()) {
+            BlockNode node = stack.pop();
+            result.add(node);
+            List<BlockNode> children = node.getChildren();
+            for (int i = children.size() - 1; i >= 0; i--) {
+                stack.push(children.get(i));
+            }
+        }
+    }
 
     private BlockNode findParentOf(BlockNode target) {
         if (target == null) return null;
@@ -485,17 +511,6 @@ public class BlockCRDT {
         traverseAllBlocks(root, result);
         return result;
     }
-
-    private void traverseAllBlocks(BlockNode node, List<BlockNode> result) {
-        if (node != root) result.add(node);
-        for (BlockNode child : node.getChildren()) {
-            traverseAllBlocks(child, result);
-        }
-    }
-// ── FILE: BlockCRDT.java ─────────────────────────────────────────────────
-// ADD both methods anywhere in the public section of BlockCRDT.java
-// (they do NOT replace anything — just add them)
-
 
     public List<BlockNode> getRootChildren() {
         return root.getChildren();
